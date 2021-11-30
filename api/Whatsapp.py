@@ -84,7 +84,7 @@ class Whatsapp:
 
         self.df = df
         self.senders = self.get_senders()
-        return df
+        # return df
 
     def get_senders(self):
         '''Return a list of unique senders.'''
@@ -113,7 +113,12 @@ class Whatsapp:
         return self.ref_helper(word_tokenize(" ".join(messages)))
 
     def group_by_date(self, sender):
-        return self.df[self.df["sender"] == sender].groupby("timestamp").count()
+        times = pd.to_datetime(
+            self.df[self.df["sender"] == sender]["timestamp"])
+        times_df = times.groupby(times.dt.date).count()
+        time_dict = {x.strftime("%d/%m/%y"): y for x,
+                     y in times_df.to_dict().items()}
+        return time_dict
 
     def group_by_hour(self, sender):
         times = pd.to_datetime(
@@ -123,35 +128,33 @@ class Whatsapp:
     def group_by_day(self, sender):
         times = pd.to_datetime(
             self.df[self.df["sender"] == sender]["timestamp"])
-        return times.groupby(times.dt.day).count().to_list()
+        return times.groupby(times.dt.day).count().to_dict()
 
     def send_piechart_json(self):
         """ Returns a sender:count dictionary """
-        return json.dumps({x: self.get_message_count_by_sender(x) for x in self.senders})
+        return json.dumps([{"name": x, "value": self.get_message_count_by_sender(x)} for x in self.senders])
 
     def send_timeseries_json(self):
         """ returns a sender:timestamp:count dict"""
-        return json.dumps({x: self.group_by_date(x).to_dict() for x in self.senders})
+        return json.dumps([{"name": x, "data": [{"date": k, "count": v} for k, v in self.group_by_date(x).items()]} for x in self.senders])
 
     def send_lexical_diversity_json(self):
-        return json.dumps({x: self.get_lexical_diversity_by_sender(x) for x in self.senders})
+        return json.dumps([{"name": x, "value": self.get_lexical_diversity_by_sender(x)} for x in self.senders])
 
     def send_avg_text_length_json(self):
-        return json.dumps({x: self.get_avg_text_length(x) for x in self.senders})
+        return json.dumps([{"name": x, "value": self.get_avg_text_length(x)} for x in self.senders])
 
     def send_word_cloud_json(self):
-        return json.dumps({x: self.get_word_cloud(x) for x in self.senders})
+        return json.dumps([{"name": x, "value": self.get_word_cloud(x)}for x in self.senders])
 
     def send_hourly_json(self):
-        return json.dumps({x: self.group_by_hour(x) for x in self.senders})
+        return json.dumps([{"name": x, "value": self.group_by_hour(x)} for x in self.senders])
 
     def send_daily_json(self):
-        return json.dumps({x: self.group_by_day(x) for x in self.senders})
-
-
+        return json.dumps([{"name": x, "data": [{'date': k, "count": v} for k, v in self.group_by_day(x).items()]} for x in self.senders])
 
 
 # mes = Whatsapp('data/messages.txt')
 # mes.parse_file()
-
-# print(mes.parse_file().head())
+# df = mes.df
+# print(mes.send_daily_json())
